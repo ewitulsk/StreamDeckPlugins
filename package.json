@@ -1,31 +1,15 @@
 {
-  "name": "discord-voice-streamdeck",
-  "version": "0.1.0",
-  "description": "Stream Deck plugin to control local Discord voice",
-  "scripts": {
-    "build": "node scripts/build.mjs",
-    "watch": "node scripts/build.mjs --watch",
-    "profiles": "node scripts/gen-profiles.mjs",
-    "icons": "tsx scripts/gen-icons.ts",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "spike": "tsx scripts/spike.ts",
-    "pack": "streamdeck pack com.evanw.discordvoice.sdPlugin --force"
-  },
+  "name": "streamdeck-plugins",
+  "private": true,
+  "description": "A collection of Stream Deck plugins",
   "type": "module",
-  "dependencies": {
-    "@elgato/streamdeck": "^3.0.4",
-    "@elgato/utils": "^0.6.2",
-    "@resvg/resvg-wasm": "^2.6.2"
-  },
-  "devDependencies": {
-    "@elgato/cli": "^1.10.4",
-    "@expo-google-fonts/inter": "^0.4.2",
-    "@types/node": "^26.6.6",
-    "esbuild": "^0.28.2",
-    "tsx": "^4.23.15",
-    "typescript": "^7.0.2",
-    "vitest": "^5.1.0"
-  },
-  "private": true
+  "workspaces": [
+    "plugins/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "validate": "npm run validate --workspaces --if-present"
+  }
 }

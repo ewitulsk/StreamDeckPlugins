@@ -1,0 +1,184 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>Discord Voice settings</title>
+		<style>
+			:root {
+				--bg: #2d2d2d;
+				--field: #3d3d3d;
+				--text: #d8d8d8;
+				--sub: #969696;
+				--accent: #5865f2;
+				--ok: #23a55a;
+				--warn: #f0b232;
+				--bad: #f23f43;
+			}
+			* { box-sizing: border-box; }
+			body { margin: 0; padding: 8px 10px 16px; background: var(--bg); color: var(--text); font: 13px/1.4 "Segoe UI", system-ui, sans-serif; }
+			h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--sub); margin: 16px 0 6px; }
+			label { display: block; color: var(--sub); font-size: 12px; margin: 6px 0 2px; }
+			input[type="text"], input[type="password"], input[type="number"], input[type="search"] {
+				width: 100%; padding: 5px 7px; background: var(--field); color: var(--text); border: 1px solid #4a4a4a; border-radius: 3px; font: inherit;
+			}
+			button { background: var(--field); color: var(--text); border: 1px solid #555; border-radius: 3px; padding: 4px 10px; font: inherit; cursor: pointer; }
+			button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+			button:hover { filter: brightness(1.15); }
+			.row { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+			.status { display: flex; gap: 8px; align-items: center; padding: 6px 8px; background: #252525; border-radius: 4px; }
+			.dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--sub); }
+			.hint { color: var(--sub); font-size: 12px; margin: 4px 0; }
+			.hint a { color: #8ea1ff; }
+			ul { list-style: none; margin: 0; padding: 0; }
+			.guilds { max-height: 260px; overflow-y: auto; border: 1px solid #444; border-radius: 4px; }
+			.guild { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-bottom: 1px solid #383838; }
+			.guild:last-child { border-bottom: none; }
+			.guild img, .guild .ph { width: 24px; height: 24px; border-radius: 7px; flex: none; background: #444; object-fit: cover; display: grid; place-items: center; font-size: 10px; font-weight: 700; }
+			.guild .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			.guild button { padding: 1px 7px; }
+			.empty { color: var(--sub); padding: 8px; font-size: 12px; }
+			details summary { cursor: pointer; color: var(--sub); }
+		</style>
+	</head>
+	<body>
+		<div class="status"><span class="dot" id="dot"></span><span id="status">Waiting for plugin…</span></div>
+
+		<h2>Favorite servers</h2>
+		<p class="hint">These appear on the first screen, in this order. With none selected, all servers are shown.</p>
+		<ul class="guilds" id="favorites"></ul>
+		<label for="search">Add servers</label>
+		<input type="search" id="search" placeholder="Filter servers…" />
+		<ul class="guilds" id="all" style="margin-top: 6px"></ul>
+
+		<h2>Controls</h2>
+		<label for="step">Volume step per press (%)</label>
+		<input type="number" id="step" min="1" max="50" step="1" />
+
+		<h2>Discord application</h2>
+		<details id="appDetails">
+			<summary id="appSummary">Client ID &amp; secret</summary>
+			<p class="hint">
+				Create an app at <a href="#" id="portal">discord.com/developers/applications</a>, open <b>OAuth2</b>, copy the Client ID, reset &amp; copy the
+				Client Secret, and add the redirect <code>http://localhost</code>.
+			</p>
+			<label for="clientId">Client ID</label>
+			<input type="text" id="clientId" autocomplete="off" spellcheck="false" />
+			<label for="clientSecret">Client Secret</label>
+			<input type="password" id="clientSecret" autocomplete="off" />
+			<div class="row">
+				<button class="primary" id="saveCreds">Save &amp; connect</button>
+				<button id="reauth">Re-authorize</button>
+				<button id="reconnect">Reconnect</button>
+			</div>
+		</details>
+
+		<script>
+			let ws, uuid, actionCtx;
+			let state = { guilds: [], settings: { favorites: [] } };
+
+			function send(payload) {
+				ws?.send(JSON.stringify({ event: "sendToPlugin", action: "com.evanw.discordvoice.launcher", context: uuid, payload }));
+			}
+
+			// Entry point called by Stream Deck.
+			window.connectElgatoStreamDeckSocket = (port, inUUID, registerEvent, info, actionInfo) => {
+				uuid = inUUID;
+				try { actionCtx = JSON.parse(actionInfo); } catch {}
+				ws = new WebSocket(`ws://127.0.0.1:${port}`);
+				ws.onopen = () => {
+					ws.send(JSON.stringify({ event: registerEvent, uuid }));
+					send({ type: "getState" });
+				};
+				ws.onmessage = (e) => {
+					const msg = JSON.parse(e.data);
+					if (msg.event === "sendToPropertyInspector" && msg.payload?.type === "state") {
+						state = msg.payload;
+						render();
+					}
+				};
+			};
+
+			const $ = (id) => document.getElementById(id);
+			const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+			const initials = (n) => esc((n.match(/\b\p{L}|\b\p{N}/gu) || [n[0]]).slice(0, 3).join(""));
+
+			const STATUS = {
+				ready: ["var(--ok)", (s) => `Connected${s.user ? " as " + esc(s.user) : ""}`],
+				connecting: ["var(--warn)", () => "Connecting to Discord…"],
+				authorizing: ["var(--warn)", () => "Check Discord — click <b>Authorize</b>"],
+				disconnected: ["var(--bad)", () => "Discord isn't running"],
+				unconfigured: ["var(--warn)", () => "Enter your Discord app's Client ID & Secret below"],
+				error: ["var(--bad)", (s) => "Error: " + esc(s.statusDetail || "unknown")],
+			};
+
+			function guildRow(g, controls) {
+				const icon = g.icon ? `<img src="${esc(g.icon)}" alt="">` : `<span class="ph">${initials(g.name)}</span>`;
+				return `<li class="guild" data-id="${g.id}">${icon}<span class="name">${esc(g.name)}</span>${controls}</li>`;
+			}
+
+			function render() {
+				const [color, text] = STATUS[state.status] || STATUS.error;
+				$("dot").style.background = color;
+				$("status").innerHTML = text(state);
+
+				const s = state.settings;
+				if (document.activeElement !== $("clientId")) $("clientId").value = s.clientId || "";
+				$("clientSecret").placeholder = s.hasSecret ? "•••••••• (saved)" : s.usingDevCredentials ? "(using dev .env credentials)" : "";
+				$("appSummary").textContent = s.clientId || s.usingDevCredentials ? "Client ID & secret (configured)" : "Client ID & secret (required)";
+				if (state.status === "unconfigured") $("appDetails").open = true;
+				if (document.activeElement !== $("step")) $("step").value = s.volumeStep || 10;
+
+				const byId = new Map(state.guilds.map((g) => [g.id, g]));
+				const favs = (s.favorites || []).filter((id) => byId.has(id));
+				$("favorites").innerHTML = favs.length
+					? favs
+							.map((id, i) =>
+								guildRow(
+									byId.get(id),
+									`<button data-act="up" ${i === 0 ? "disabled" : ""}>↑</button><button data-act="down" ${i === favs.length - 1 ? "disabled" : ""}>↓</button><button data-act="remove">✕</button>`,
+								),
+							)
+							.join("")
+					: `<li class="empty">No favorites — all servers are shown.</li>`;
+
+				const q = $("search").value.trim().toLowerCase();
+				const rest = state.guilds.filter((g) => !favs.includes(g.id) && (!q || g.name.toLowerCase().includes(q)));
+				$("all").innerHTML = rest.length
+					? rest.map((g) => guildRow(g, `<button data-act="add">Add</button>`)).join("")
+					: `<li class="empty">${state.guilds.length ? "No matches." : "Connect to Discord to load your servers."}</li>`;
+			}
+
+			function setFavorites(favs) {
+				state.settings.favorites = favs;
+				render();
+				send({ type: "saveFavorites", favorites: favs });
+			}
+
+			document.addEventListener("click", (e) => {
+				const btn = e.target.closest("button[data-act]");
+				if (!btn) return;
+				const id = btn.closest("[data-id]").dataset.id;
+				const favs = [...(state.settings.favorites || [])].filter((f) => state.guilds.some((g) => g.id === f));
+				const i = favs.indexOf(id);
+				if (btn.dataset.act === "add") favs.push(id);
+				if (btn.dataset.act === "remove") favs.splice(i, 1);
+				if (btn.dataset.act === "up" && i > 0) [favs[i - 1], favs[i]] = [favs[i], favs[i - 1]];
+				if (btn.dataset.act === "down" && i < favs.length - 1) [favs[i + 1], favs[i]] = [favs[i], favs[i + 1]];
+				setFavorites(favs);
+			});
+
+			$("search").addEventListener("input", render);
+			$("step").addEventListener("change", () => send({ type: "saveVolumeStep", volumeStep: Number($("step").value) }));
+			$("saveCreds").addEventListener("click", () => {
+				send({ type: "saveCredentials", clientId: $("clientId").value, clientSecret: $("clientSecret").value });
+				$("clientSecret").value = "";
+			});
+			$("reauth").addEventListener("click", () => send({ type: "reauthorize" }));
+			$("reconnect").addEventListener("click", () => send({ type: "reconnect" }));
+			$("portal").addEventListener("click", (e) => {
+				e.preventDefault();
+				ws?.send(JSON.stringify({ event: "openUrl", payload: { url: "https://discord.com/developers/applications" } }));
+			});
+		</script>
+	</body>
+</html>

@@ -1,0 +1,64 @@
+{
+	"$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
+	"UUID": "com.evanw.discordvoice",
+	"Name": "Discord Voice Deck",
+	"Version": "0.1.0.0",
+	"Author": "Evan W",
+	"Description": "Browse your servers, join voice channels, and control everyone in the call — mute, deafen and per-user volume — from your Stream Deck. Talks to your local Discord app.",
+	"Category": "Discord Voice Deck",
+	"CategoryIcon": "imgs/category",
+	"Icon": "imgs/plugin",
+	"CodePath": "bin/plugin.js",
+	"SDKVersion": 3,
+	"Software": { "MinimumVersion": "7.1" },
+	"Nodejs": { "Version": "24", "Debug": "enabled" },
+	"OS": [
+		{ "Platform": "windows", "MinimumVersion": "10" },
+		{ "Platform": "mac", "MinimumVersion": "13" }
+	],
+	"Actions": [
+		{
+			"UUID": "com.evanw.discordvoice.launcher",
+			"Name": "Discord Voice",
+			"Tooltip": "Opens the Discord voice deck. Shows your call & mute status.",
+			"Icon": "imgs/action-launcher",
+			"PropertyInspectorPath": "ui/settings.html",
+			"Controllers": ["Keypad"],
+			"SupportedInMultiActions": false,
+			"UserTitleEnabled": false,
+			"States": [{ "Image": "imgs/key-launcher", "ShowTitle": false }]
+		},
+		{
+			"UUID": "com.evanw.discordvoice.slot",
+			"Name": "Discord Voice Slot",
+			"Tooltip": "Internal: a dynamic key used by the Discord Voice profile.",
+			"Icon": "imgs/action-slot",
+			"Controllers": ["Keypad"],
+			"SupportedInMultiActions": false,
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": false,
+			"States": [{ "Image": "imgs/key-blank", "ShowTitle": false }]
+		},
+		{
+			"UUID": "com.evanw.discordvoice.dial",
+			"Name": "Discord Voice Dial",
+			"Tooltip": "Adjusts the volume of the person shown above this dial in the Discord Voice profile.",
+			"Icon": "imgs/action-dial",
+			"Controllers": ["Encoder"],
+			"SupportedInMultiActions": false,
+			"VisibleInActionsList": false,
+			"Encoder": {
+				"layout": "$B1",
+				"TriggerDescription": { "Rotate": "Volume", "Push": "Mute for me", "Touch": "Mute for me" }
+			},
+			"States": [{ "Image": "imgs/key-blank" }]
+		}
+	],
+	"Profiles": [
+		{ "Name": "profiles/Discord Voice", "DeviceType": 0, "Readonly": true, "DontAutoSwitchWhenInstalled": true },
+		{ "Name": "profiles/Discord Voice Mini", "DeviceType": 1, "Readonly": true, "DontAutoSwitchWhenInstalled": true },
+		{ "Name": "profiles/Discord Voice XL", "DeviceType": 2, "Readonly": true, "DontAutoSwitchWhenInstalled": true },
+		{ "Name": "profiles/Discord Voice Plus", "DeviceType": 7, "Readonly": true, "DontAutoSwitchWhenInstalled": true },
+		{ "Name": "profiles/Discord Voice Neo", "DeviceType": 9, "Readonly": true, "DontAutoSwitchWhenInstalled": true }
+	]
+}

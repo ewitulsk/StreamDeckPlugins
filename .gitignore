@@ -1,0 +1,10 @@
+node_modules/
+.env
+*.log
+dist/
+*.sdPlugin/bin/
+*.sdPlugin/logs/
+*.streamDeckPlugin
+.token.json
+spike.log
+preview.png
